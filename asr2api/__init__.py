@@ -352,7 +352,8 @@ async def transcribe(request):
     _LOGGER.info("%s", request.rel_url)
     try:
         reader = await request.multipart()
-    except ValueError as exc:
+    except (ValueError, AssertionError) as exc:
+        # aiohttp asserts on a non-multipart content type rather than raising.
         _LOGGER.warning("Invalid multipart payload: %s", exc)
         return web.json_response(
             {
