@@ -112,6 +112,14 @@ def studio_headers(token: str):
         raise RemoteApiError("Studio token contains unsupported characters")
     return {"Cookie": f"studio_token={token}", "X-Studio-Token": token}
 FORCE_BACKEND = (os.getenv("BACKEND") or "").strip().lower() or None
+# The model detects language itself, and a wrong client hint only mislabels the
+# result, so client-sent `language` is ignored unless this is switched off.
+TRUST_CLIENT_LANGUAGE = (os.getenv("TRUST_CLIENT_LANGUAGE") or "").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+    "on",
+)
 
 # The demo app takes ISO codes ("en"), the studio app takes display names
 # ("English"). Keyed by the ISO code the demo app uses.
@@ -383,7 +391,13 @@ async def transcribe(request):
 
     model = (post.get("model") or "").strip()
     prompt = post.get("prompt", "")
-    language = normalize_language(post.get("language") or DEFAULT_LANGUAGE, backend)
+    # Clients like Home Assistant always send their configured language, which
+    # is wrong the moment someone speaks another one. Auto-detect instead.
+    requested = post.get("language")
+    if requested and not TRUST_CLIENT_LANGUAGE:
+        _LOGGER.info("Ignoring client language %r in favour of auto detection", requested)
+        requested = None
+    language = normalize_language(requested or DEFAULT_LANGUAGE, backend)
     enable_itn = model.endswith("itn")
     want_words = post.get("response_format") == "verbose_json" or "word" in post.get(
         "timestamp_granularities[]", post.get("timestamp_granularities", "")

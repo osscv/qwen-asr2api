@@ -66,8 +66,16 @@ curl --request POST \
 | `STUDIO_TOKEN` | 全局令牌，适用于未指定 `model` 的调用 |
 | `BASE_URL` | 转发目标，默认 `https://qwen-qwen3-asr-demo.ms.show`；配置了令牌则默认创空间 |
 | `BACKEND` | 强制后端类型：`demo` 或 `studio`，默认自动探测 |
-| `DEFAULT_LANGUAGE` | 默认语言，默认 `auto` |
+| `DEFAULT_LANGUAGE` | 默认语言，默认 `auto`（自动识别） |
+| `TRUST_CLIENT_LANGUAGE` | 是否采纳客户端传来的 `language`，默认 `false` |
 | `REQUEST_TIMEOUT` | 请求超时秒数，默认 `300` |
+
+### 🌍 Language / 语言识别
+模型自带语种识别，默认走 `auto`，无需指定语言。
+
+客户端（如 Home Assistant）通常会按自己的配置固定发送一个 `language`，一旦有人说了别的语言就会出错，所以默认**忽略**客户端传来的 `language`。实测：中文音频若被强制指定 `language=en`，转写文本仍然是正确的中文，但返回的 `lang` 会被错标成 `English`；忽略之后 `lang` 恢复为 `Chinese`。
+
+需要恢复旧行为（采纳客户端语言）时设 `TRUST_CLIENT_LANGUAGE=true`；想在服务端固定一个语种则用 `DEFAULT_LANGUAGE=zh`。
 
 ### 🔐 Qwen3-ASR-1.7B 创空间 / Studio endpoint
 `https://qwen-qwen3-asr.ms.show` 需要携带 `studio_token` Cookie。只要配置对应模型的令牌即可，后端地址会自动指向该创空间：
