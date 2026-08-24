@@ -6,5 +6,7 @@ services:
       - 8820:80
     environment:
       #API_KEY: sk-your-dummy-key # The key for this API service, NOT for Qwen
+      # Token for the Qwen3-ASR-1.7B studio; setting it also selects that backend
+      #qwen3-asr-1-7b-studio-token: your-studio-token
       TZ: ${TZ:-Asia/Shanghai}
     restart: unless-stopped

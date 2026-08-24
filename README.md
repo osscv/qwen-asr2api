@@ -55,10 +55,57 @@ curl --request POST \
 
 ## 🤖 Models / 模型
 - `qwen3-asr`
-- `qwen3-asr:itn` 启用逆文本标准化
+- `qwen3-asr:itn` 启用逆文本标准化（仅默认 demo 后端支持）
+- `Qwen3-ASR-1.7B` 使用 `qwen-qwen3-asr.ms.show` 后端时的模型名
+
+## ⚙️ Environment / 环境变量
+| 变量 | 说明 |
+| --- | --- |
+| `API_KEY` | 本服务的访问密钥（不是 Qwen 的密钥），留空则不校验 |
+| `<模型名>-studio-token` | 创空间令牌，如 `qwen3-asr-1-7b-studio-token`，配置后自动切换到该后端 |
+| `STUDIO_TOKEN` | 全局令牌，适用于未指定 `model` 的调用 |
+| `BASE_URL` | 转发目标，默认 `https://qwen-qwen3-asr-demo.ms.show`；配置了令牌则默认创空间 |
+| `BACKEND` | 强制后端类型：`demo` 或 `studio`，默认自动探测 |
+| `DEFAULT_LANGUAGE` | 默认语言，默认 `auto` |
+| `REQUEST_TIMEOUT` | 请求超时秒数，默认 `300` |
+
+### 🔐 Qwen3-ASR-1.7B 创空间 / Studio endpoint
+`https://qwen-qwen3-asr.ms.show` 需要携带 `studio_token` Cookie。只要配置对应模型的令牌即可，后端地址会自动指向该创空间：
+
+```shell
+docker run -d --name asr2api -p 8820:80 \
+  -e qwen3-asr-1-7b-studio-token=your-token \
+  ghcr.nju.edu.cn/aahl/qwen-asr2api:main
+```
+
+令牌键名按模型名归一化，下面几种写法等价，`_` 和 `-` 混用、大小写、`.` 或 `-` 分隔小版本号都能匹配到同一个模型：
+
+```
+qwen3-asr-1-7b-studio-token
+QWEN3_ASR_1_7B_STUDIO_TOKEN
+qwen3-asr-1.7b-hf-studio-token
+```
+
+请求时 `model` 也同样宽松：`Qwen3-ASR-1.7B`、`qwen3-asr-1-7b`、`qwen3-asr-1.7b-hf` 都会用上同一个令牌。
+
+> 令牌只从环境变量读取，不写入代码，也不会出现在日志里。两个后端的接口形状不同（函数名、语言参数、返回顺序），程序会自动探测并适配。
+
+### ⏱️ Word timestamps / 词级时间戳
+studio 后端可返回词级时间戳，加上 `response_format=verbose_json` 或 `timestamp_granularities[]=word` 即可：
+
+```shell
+curl --request POST \
+  --url http://localhost:8820/v1/audio/transcriptions \
+  --form model=Qwen3-ASR-1.7B \
+  --form response_format=verbose_json \
+  --form file='@audio.wav'
+```
+
+响应会带上 `words` 数组，每项包含 `word`、`start`、`end`。
 
 
 ## 🔗 Links / 相关链接
 - 默认转发目标：https://qwen-qwen3-asr-demo.ms.show
+- Qwen3-ASR-1.7B 创空间：https://qwen-qwen3-asr.ms.show
 - 说明：本项目当前是把远端 Gradio ASR Demo 包装成 OpenAI 风格接口，不是本地离线推理。
 - https://linux.do/t/topic/1367480
