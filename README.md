@@ -86,6 +86,8 @@ curl --request POST \
 | `DEFAULT_LANGUAGE` | 默认语言，默认 `auto`（自动识别） |
 | `TRUST_CLIENT_LANGUAGE` | 是否采纳客户端传来的 `language`，默认 `false` |
 | `REQUEST_TIMEOUT` | 请求超时秒数，默认 `300` |
+| `HOST` | 监听地址，默认 `0.0.0.0` |
+| `PORT` | 监听端口，默认 `80`（容器内） |
 
 ### 🔑 API Key / 访问密钥
 默认**不校验**密钥，任何能访问到端口的人都能调用。设置 `API_KEY` 即开启校验，`/v1/models` 和 `/v1/audio/transcriptions` 都会被保护：
