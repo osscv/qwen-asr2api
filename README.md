@@ -10,6 +10,9 @@ wget https://raw.githubusercontent.com/aahl/qwen-asr2api/refs/heads/main/docker-
 docker compose up -d
 ```
 
+> 想用创空间后端，请下载本分支的 compose 文件（含令牌示例）：
+> `wget https://raw.githubusercontent.com/osscv/qwen-asr2api/refs/heads/main/docker-compose.yml`
+
 ### 🐳 Docker run
 ```shell
 docker run -d \
@@ -18,6 +21,17 @@ docker run -d \
   -p 8820:80 \
   ghcr.nju.edu.cn/aahl/qwen-asr2api:main
 ```
+
+> ⚠️ 上游镜像暂未包含 Qwen3-ASR-1.7B 创空间支持（[PR #4](https://github.com/aahl/qwen-asr2api/pull/4) 合并后即可用）。现在就想用创空间后端和词级时间戳，请改用本分支构建的镜像：
+>
+> ```shell
+> docker run -d \
+>   --name asr2api \
+>   --restart=unless-stopped \
+>   -p 8820:80 \
+>   -e qwen3-asr-1-7b-studio-token=your-token \
+>   ghcr.io/osscv/qwen-asr2api:main
+> ```
 
 ### 🏠 Home Assistant OS Add-on
 1. 添加加载项仓库
@@ -83,8 +97,10 @@ curl --request POST \
 ```shell
 docker run -d --name asr2api -p 8820:80 \
   -e qwen3-asr-1-7b-studio-token=your-token \
-  ghcr.nju.edu.cn/aahl/qwen-asr2api:main
+  ghcr.io/osscv/qwen-asr2api:main
 ```
+
+> 上游镜像 `ghcr.nju.edu.cn/aahl/qwen-asr2api:main` 目前还没有这部分代码，令牌会被忽略；[PR #4](https://github.com/aahl/qwen-asr2api/pull/4) 合并后同样可用。
 
 令牌键名按模型名归一化，下面几种写法等价，`_` 和 `-` 混用、大小写、`.` 或 `-` 分隔小版本号都能匹配到同一个模型：
 
