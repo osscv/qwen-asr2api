@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+import secrets
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
 import aiohttp
@@ -111,15 +112,29 @@ def studio_headers(token: str):
     if not TOKEN_RE.match(token):
         raise RemoteApiError("Studio token contains unsupported characters")
     return {"Cookie": f"studio_token={token}", "X-Studio-Token": token}
+
+
+TRUTHY = ("1", "true", "yes", "on")
+FALSY = ("0", "false", "no", "off")
+
 FORCE_BACKEND = (os.getenv("BACKEND") or "").strip().lower() or None
+
+API_KEY = (os.getenv("API_KEY") or "").strip()
+# Unset: require a key only when one is configured. true/false forces it on or
+# off, so a key can be kept in the environment while auth is switched off.
+_REQUIRE_RAW = (os.getenv("REQUIRE_API_KEY") or "").strip().lower()
+if _REQUIRE_RAW in TRUTHY:
+    REQUIRE_API_KEY = True
+elif _REQUIRE_RAW in FALSY:
+    REQUIRE_API_KEY = False
+else:
+    if _REQUIRE_RAW:
+        _LOGGER.warning("Unrecognised REQUIRE_API_KEY %r, deriving from API_KEY", _REQUIRE_RAW)
+    REQUIRE_API_KEY = bool(API_KEY)
+
 # The model detects language itself, and a wrong client hint only mislabels the
 # result, so client-sent `language` is ignored unless this is switched off.
-TRUST_CLIENT_LANGUAGE = (os.getenv("TRUST_CLIENT_LANGUAGE") or "").strip().lower() in (
-    "1",
-    "true",
-    "yes",
-    "on",
-)
+TRUST_CLIENT_LANGUAGE = (os.getenv("TRUST_CLIENT_LANGUAGE") or "").strip().lower() in TRUTHY
 
 # The demo app takes ISO codes ("en"), the studio app takes display names
 # ("English"). Keyed by the ISO code the demo app uses.
@@ -230,6 +245,9 @@ async def api_post(session: aiohttp.ClientSession, api: str, *, json_body=None, 
 
 
 async def get_models(request):
+    if not await check_auth(request):
+        return web.json_response({"error": "Unauthorized"}, status=401)
+
     backend = await resolve_backend(request.app)
     models = [{"id": "qwen3-asr"}]
     if backend == STUDIO_BACKEND:
@@ -431,11 +449,14 @@ async def transcribe(request):
 
 
 async def check_auth(request):
-    if apikey := os.getenv("API_KEY"):
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header not in [apikey, f"Bearer {apikey}"]:
-            return False
-    return True
+    if not REQUIRE_API_KEY:
+        return True
+
+    presented = request.headers.get(aiohttp.hdrs.AUTHORIZATION, "").strip()
+    if presented.lower().startswith("bearer "):
+        presented = presented[7:].strip()
+    # compare_digest keeps the check constant-time.
+    return bool(presented) and secrets.compare_digest(presented, API_KEY)
 
 
 @web.middleware
@@ -451,6 +472,15 @@ async def cors_auth_middleware(request, handler):
 
 
 def create_app():
+    if REQUIRE_API_KEY and not API_KEY:
+        raise SystemExit("REQUIRE_API_KEY is set but API_KEY is empty; nothing could authenticate.")
+    if REQUIRE_API_KEY:
+        _LOGGER.info("API key required for /v1/models and /v1/audio/transcriptions")
+    else:
+        _LOGGER.warning(
+            "No API key required: this service is open to anyone who can reach %s:%s", HOST, PORT
+        )
+
     app = web.Application(logger=_LOGGER, middlewares=[cors_auth_middleware])
     app.on_startup.append(init_session)
     app.on_cleanup.append(on_cleanup)
